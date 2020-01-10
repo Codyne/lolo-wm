@@ -1,8 +1,10 @@
 #include <X11/Xlib.h>
 #include <X11/XKBlib.h>
 #include <unistd.h>
+#include <time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
@@ -32,10 +34,16 @@ Client barclient;
 Client *bc = &barclient;
 Display * dpy;
 int BORDER_W;
+XFontStruct *fontinfo;
+GC gc;
+XGCValues grv;
+char *cur_tm;
 
 void root_startup();
 void bar_startup();
-void draw_bar();
+void map_bar();
+void draw_bar_text();
+void set_time();
 void set_grabs();
 int xerror(Display *dpy, XErrorEvent *ee);
 void spawn(char * const args[]);
@@ -63,14 +71,20 @@ int main(void) {
 
   root_startup();
   bar_startup();
-  draw_bar();
+  map_bar();
   set_grabs();
+  set_time();
 
   start.subwindow = None;
   for (;;) {
     XNextEvent(dpy, &ev);
-    if(ev.type == KeyPress && ev.xkey.subwindow != None) {
-      if (XKeysymToKeycode(dpy, XStringToKeysym("F")) == ev.xkey.keycode) {
+
+    if (ev.type == Expose) {
+      draw_bar_text();
+    }
+    
+    if(ev.type == KeyPress && ev.xkey.subwindow != None && ev.xkey.subwindow != bc->win) {
+      if (XKeysymToKeycode(dpy, XStringToKeysym("F")) == ev.xkey.keycode) {	
 	Client *c = get_client(ev.xkey.subwindow);
 	fs_client(c); 
       } else if (XKeysymToKeycode(dpy, XStringToKeysym("F1")) == ev.xkey.keycode) {
@@ -79,8 +93,12 @@ int main(void) {
 	XDestroyWindow(dpy, ev.xkey.subwindow);
       } else if (XKeysymToKeycode(dpy, XStringToKeysym("1")) <= ev.xkey.keycode &&
 		 XKeysymToKeycode(dpy, XStringToKeysym("0")) >= ev.xkey.keycode) {
-	if (ev.xkey.state == (ShiftMask|Mod4Mask)) move_client_workspace(XKeysymToString(XkbKeycodeToKeysym(dpy, ev.xkey.keycode, 0, 0)), get_client(ev.xkey.subwindow));
-	else change_workspace(XKeysymToString(XkbKeycodeToKeysym(dpy, ev.xkey.keycode, 0, 0)));
+	if (ev.xkey.state == (ShiftMask|Mod4Mask)) {
+	  move_client_workspace(XKeysymToString(XkbKeycodeToKeysym(dpy, ev.xkey.keycode, 0, 0)), get_client(ev.xkey.subwindow));
+	} else {
+	  change_workspace(XKeysymToString(XkbKeycodeToKeysym(dpy, ev.xkey.keycode, 0, 0)));
+	  draw_bar_text();
+	}
       } else if (XKeysymToKeycode(dpy, XStringToKeysym("Return")) == ev.xkey.keycode) {
 	char * const args[] = { "x-terminal-emulator", NULL };
 	spawn(args);
@@ -92,16 +110,18 @@ int main(void) {
       XGetWindowAttributes(dpy, ev.xbutton.subwindow, &attr);
       start = ev.xbutton;
     } else if (ev.type == MotionNotify && start.subwindow != None) {
-      Client *c = get_client(start.subwindow);
-      if (!c->isfullscreen) {
-	XRaiseWindow(dpy, start.subwindow);
-	int xdiff = ev.xbutton.x_root - start.x_root;
-	int ydiff = ev.xbutton.y_root - start.y_root;
-	XMoveResizeWindow(dpy, start.subwindow,
-			  attr.x + (start.button==1 ? xdiff : 0),
-			  attr.y + (start.button==1 ? ydiff : 0),
-			  MAX(1, attr.width + (start.button==3 ? xdiff : 0)),
-			  MAX(1, attr.height + (start.button==3 ? ydiff : 0)));
+      if (start.subwindow != bc->win) {
+	Client *c = get_client(start.subwindow);
+	if (!c->isfullscreen) {
+	  XRaiseWindow(dpy, start.subwindow);
+	  int xdiff = ev.xbutton.x_root - start.x_root;
+	  int ydiff = ev.xbutton.y_root - start.y_root;
+	  XMoveResizeWindow(dpy, start.subwindow,
+			    attr.x + (start.button==1 ? xdiff : 0),
+			    attr.y + (start.button==1 ? ydiff : 0),
+			    MAX(1, attr.width + (start.button==3 ? xdiff : 0)),
+			    MAX(1, attr.height + (start.button==3 ? ydiff : 0)));
+	}
       }
     } else if (ev.type == ButtonRelease) {
       start.subwindow = None;
@@ -114,10 +134,13 @@ int main(void) {
 	spawn(args);
       } else if (XKeysymToKeycode(dpy, XStringToKeysym("1")) <= ev.xkey.keycode &&
 		 XKeysymToKeycode(dpy, XStringToKeysym("0")) >= ev.xkey.keycode) {
-	if (ev.xkey.state == Mod4Mask) change_workspace(XKeysymToString(XkbKeycodeToKeysym(dpy, ev.xkey.keycode, 0, 0)));
+	if (ev.xkey.state == Mod4Mask) {
+	  change_workspace(XKeysymToString(XkbKeycodeToKeysym(dpy, ev.xkey.keycode, 0, 0)));
+	  draw_bar_text();
+	}
       }
     } else if (ev.type == CreateNotify) {
-      if (ev.xcreatewindow.parent == rc->win) {
+      if (ev.xcreatewindow.window != rc->win && ev.xcreatewindow.window != bc->win) {
 	create_client(ev.xcreatewindow.window, ev.xcreatewindow.x, ev.xcreatewindow.y, ev.xcreatewindow.width, ev.xcreatewindow.height);
       }
     }
@@ -149,15 +172,33 @@ void bar_startup() {
   
   if (bc->w == 0) bc->w = 1;
   
-  Window win = XCreateSimpleWindow(dpy, RootWindow(dpy, 0), 0, 0, bc->w, bc->h, BORDER_W, WhitePixel(dpy, 0), BlackPixel(dpy, 0));
-  bc->win = win;
+  bc->win = XCreateSimpleWindow(dpy, RootWindow(dpy, 0), 0, 0, bc->w, bc->h, BORDER_W, WhitePixel(dpy, 0), BlackPixel(dpy, 0));
+
+  XSelectInput(dpy, bc->win, ExposureMask|KeyPressMask);
+  fontinfo = XLoadQueryFont(dpy, "6x10");
   
-  //GC gc = XCreateGC(dpy, rc->win, 0, 0);
-  //XDrawRectangle(dpy, win, gc, 0, 0, 0, 0);
+  grv.foreground = WhitePixel(dpy, 0);
+  grv.font = fontinfo->fid;
+  gc = XCreateGC(dpy, bc->win, GCFont+GCForeground, &grv);
 }
 
-void draw_bar() {
+void map_bar() {
   XMapWindow(dpy, bc->win);
+}
+
+void draw_bar_text() {
+  set_time();
+  XClearWindow(dpy, bc->win);
+  XDrawString(dpy, bc->win, gc, 2, bc->h - 2, cur_ws, 1);
+  XDrawString(dpy, bc->win, gc, bc->w - 95 - strlen(cur_tm), bc->h - 2, cur_tm, strlen(cur_tm));
+}
+
+void set_time() {
+  time_t t = time(NULL);
+  struct tm tm = *localtime(&t);
+  char tmp[255];
+  sprintf(tmp, "%d-%02d-%02d %02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+  cur_tm = tmp;
 }
 
 int xerror(Display *dpy, XErrorEvent *ee) {
@@ -236,7 +277,6 @@ void change_workspace(char *str) {
 
   for (tmp = get_workspace(cur_ws)->clients; tmp; tmp = tmp->next)
     XMapWindow(dpy, tmp->win);
-  XMapWindow(dpy, bc->win);
   }
 
 void move_client_workspace(char *str, Client *c) {
