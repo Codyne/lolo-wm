@@ -40,6 +40,7 @@ XGCValues grv;
 char *cur_tm;
 
 void root_startup();
+void root_resize(int w, int h);
 void bar_startup();
 void map_bar();
 void draw_bar_text();
@@ -143,6 +144,16 @@ int main(void) {
       if (ev.xcreatewindow.window != rc->win && ev.xcreatewindow.window != bc->win) {
 	create_client(ev.xcreatewindow.window, ev.xcreatewindow.x, ev.xcreatewindow.y, ev.xcreatewindow.width, ev.xcreatewindow.height);
       }
+    } else if (ev.type == DestroyNotify) {
+      //destroy_client(ev.xdestroywindow.window);
+    } else if (ev.type == ConfigureNotify) {
+      if (ev.xconfigure.window == rc->win) {
+	XClearWindow(dpy, rc->win);
+	root_resize(ev.xconfigure.width, ev.xconfigure.height);
+	XDestroyWindow(dpy, bc->win);
+	bar_startup();
+	map_bar();
+      }
     }
   }
 }
@@ -157,9 +168,14 @@ void root_startup() {
 
   XSetErrorHandler(xerror);
   
-  XSelectInput(dpy, rc->win, SubstructureNotifyMask);
+  XSelectInput(dpy, rc->win, SubstructureNotifyMask|StructureNotifyMask);
   
   create_workspace("1");
+}
+
+void root_resize(int w, int h) {
+  rc->w = w;
+  rc->h = h;
 }
 
 void bar_startup() {
@@ -242,14 +258,25 @@ Workspace* create_workspace(char *str) {
 }
 
 void destroy_workspace(char *str) {
-  //if workspace is not open and has no windows, destroy it
-  Workspace *s = get_workspace(str);
+  Workspace *s;
+  Workspace *prev = NULL;
 
-  if (!s) return;
+  if (strcmp(str, cur_ws) == 0) return;
+  
+  for (s = ws; s; s = s->next) {
+    if (strcmp(s->name, str) != 0) prev = s;
+    else break;
+  }
 
-  //if s->clients exist, loop through and destroy them all
+  if (s->clients) return;
 
-  //then remove the workspace
+  if (!prev) {
+    ws = s->next;
+  } else {
+    prev->next = s->next;
+  }
+
+  free(s);
 }
 
 Workspace* get_workspace(char *str) {
@@ -269,15 +296,19 @@ void change_workspace(char *str) {
   for (tmp = get_workspace(cur_ws)->clients; tmp; tmp = tmp->next)
     XUnmapWindow(dpy, tmp->win);
 
-    
-  s = get_workspace(str);
-  if (s == NULL) s = create_workspace(str);
+
+  s = create_workspace(str);
+  //s = get_workspace(str);
+  //if (s == NULL) s = create_workspace(str);
 
   cur_ws = s->name;
 
-  for (tmp = get_workspace(cur_ws)->clients; tmp; tmp = tmp->next)
+  //for (tmp = get_workspace(cur_ws)->clients; tmp; tmp = tmp->next)
+  for (tmp = s->clients; tmp; tmp = tmp->next) {
+    if (tmp->isfullscreen) XMoveResizeWindow(dpy, tmp->win, 0, bc->h + 2, rc->w, rc->h - bc->h);
     XMapWindow(dpy, tmp->win);
   }
+}
 
 void move_client_workspace(char *str, Client *c) {
   Workspace *s = get_workspace(cur_ws);
@@ -305,7 +336,7 @@ void create_client(Window w, int x, int y, int width, int height) {
 void destroy_client(Window w) {
   Workspace *tmpws = ws;
   Client *tc = NULL;
-
+  
   tmpws = get_client_workspace(w);
 
   if (!tmpws) return;
@@ -317,6 +348,8 @@ void destroy_client(Window w) {
   remove_client(tmpws, tc);
 
   free(tc);
+
+  if (strcmp(tmpws->name, cur_ws) != 0) destroy_workspace(tmpws->name);
 }
 
 void remove_client(Workspace *s, Client *c) {
@@ -374,12 +407,12 @@ void add_client_to_ws(Client *c, Workspace *s) {
   Client *nc;
 
   if (strcmp(s->name, cur_ws) != 0) XUnmapWindow(dpy, c->win);
-  
+
   if (!s->clients) {
     s->clients = c;
     return;
   }
-  
+
   for (nc = s->clients; nc->next; nc = nc->next);
   nc->next = c;
 
