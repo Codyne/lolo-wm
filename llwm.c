@@ -451,29 +451,14 @@ void fs_client(Client *c) {
 }
 
 void set_grabs() {
+  for (char ch = '0'; ch <= '9'; ch++) {
+    const char* tmp = &ch;
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym(tmp)), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym(tmp)), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
+  }  
   XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("F1")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
   XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("F")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
   XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("D")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("1")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("1")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("2")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("2")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("3")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("3")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("4")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("4")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("5")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("5")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("6")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("6")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("7")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("7")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("8")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("8")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("9")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("9")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("0")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
-  XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("0")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
   XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("Q")), ShiftMask|Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
   XGrabKey(dpy, XKeysymToKeycode(dpy, XStringToKeysym("Return")), Mod4Mask, rc->win, True, GrabModeAsync, GrabModeAsync);
   XGrabButton(dpy, Button1, Mod4Mask, rc->win, True, ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
