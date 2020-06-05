@@ -79,15 +79,14 @@ int main(void) {
   start.subwindow = None;
   for (;;) {
     XNextEvent(dpy, &ev);
-
     if (ev.type == Expose) {
       draw_bar_text();
     }
     
     if(ev.type == KeyPress && ev.xkey.subwindow != None && ev.xkey.subwindow != bc->win) {
-      if (XKeysymToKeycode(dpy, XStringToKeysym("F")) == ev.xkey.keycode) {	
+      if (XKeysymToKeycode(dpy, XStringToKeysym("F")) == ev.xkey.keycode) {
 	Client *c = get_client(ev.xkey.subwindow);
-	fs_client(c); 
+	fs_client(c);
       } else if (XKeysymToKeycode(dpy, XStringToKeysym("F1")) == ev.xkey.keycode) {
 	XRaiseWindow(dpy, ev.xkey.subwindow);
       } else if (XKeysymToKeycode(dpy, XStringToKeysym("Q")) == ev.xkey.keycode) {
@@ -140,12 +139,8 @@ int main(void) {
 	  draw_bar_text();
 	}
       }
-    } else if (ev.type == CreateNotify) {
-      if (ev.xcreatewindow.window != rc->win && ev.xcreatewindow.window != bc->win) {
-	create_client(ev.xcreatewindow.window, ev.xcreatewindow.x, ev.xcreatewindow.y, ev.xcreatewindow.width, ev.xcreatewindow.height);
-      }
     } else if (ev.type == DestroyNotify) {
-      //destroy_client(ev.xdestroywindow.window);
+      destroy_client(ev.xdestroywindow.window);
     } else if (ev.type == ConfigureNotify) {
       if (ev.xconfigure.window == rc->win) {
 	XClearWindow(dpy, rc->win);
@@ -154,6 +149,26 @@ int main(void) {
 	bar_startup();
 	map_bar();
       }
+    } else if (ev.type == MapRequest) {
+      if (ev.xmaprequest.window != rc->win && ev.xmaprequest.window != bc->win) {
+	XWindowAttributes xw;
+	XGetWindowAttributes(dpy, ev.xmaprequest.window, &xw);
+	if (!get_client(ev.xmaprequest.window)) {
+	  create_client(ev.xmaprequest.window, xw.x, xw.y, xw.width, xw.height);
+	  XMapWindow(dpy, ev.xmaprequest.window);
+	}
+      }
+    } else if (ev.type == ConfigureRequest) {
+      XWindowChanges wc;
+      wc.x = ev.xconfigurerequest.x;
+      wc.y = ev.xconfigurerequest.y;
+      wc.width = ev.xconfigurerequest.width;
+      wc.height = ev.xconfigurerequest.height;
+      wc.border_width = ev.xconfigurerequest.border_width;
+      wc.sibling = ev.xconfigurerequest.above;
+      wc.stack_mode = ev.xconfigurerequest.detail;
+
+      XConfigureWindow(dpy, ev.xconfigurerequest.window, ev.xconfigurerequest.value_mask, &wc);
     }
   }
 }
@@ -167,8 +182,8 @@ void root_startup() {
   rc->win = DefaultRootWindow(dpy);
 
   XSetErrorHandler(xerror);
-  
-  XSelectInput(dpy, rc->win, SubstructureNotifyMask|StructureNotifyMask);
+
+  XSelectInput(dpy, DefaultRootWindow(dpy), SubstructureRedirectMask|SubstructureNotifyMask|StructureNotifyMask);
   
   create_workspace("1");
 }
@@ -298,14 +313,13 @@ void change_workspace(char *str) {
 
 
   s = create_workspace(str);
-  //s = get_workspace(str);
-  //if (s == NULL) s = create_workspace(str);
 
   cur_ws = s->name;
 
-  //for (tmp = get_workspace(cur_ws)->clients; tmp; tmp = tmp->next)
   for (tmp = s->clients; tmp; tmp = tmp->next) {
-    if (tmp->isfullscreen) XMoveResizeWindow(dpy, tmp->win, 0, bc->h + 2, rc->w, rc->h - bc->h);
+    if (tmp->isfullscreen)
+      XMoveResizeWindow(dpy, tmp->win, 0, bc->h + 2, rc->w, rc->h - bc->h);
+
     XMapWindow(dpy, tmp->win);
   }
 }
@@ -329,14 +343,14 @@ void create_client(Window w, int x, int y, int width, int height) {
   nc->isfullscreen = 0;
   nc->next = NULL;
   nc->win = w;
-  
+
   add_client_to_ws(nc, get_workspace(cur_ws));
 }
 
 void destroy_client(Window w) {
   Workspace *tmpws = ws;
   Client *tc = NULL;
-  
+
   tmpws = get_client_workspace(w);
 
   if (!tmpws) return;
@@ -386,21 +400,20 @@ Client* get_client(Window w) {
 Workspace* get_client_workspace(Window w) {
   Workspace *tmpws = ws;
   Client *tc = NULL;
-  
+
   while (tmpws != NULL) {
     if (tmpws->clients != NULL) {
       tc = tmpws->clients;
-      while (tc != NULL && tc->win != w) {
+
+      while (tc != NULL) {
+	if (tc->win == w) return tmpws;
 	tc = tc->next;
       }
-      
-      if (tc->win == w) break;
     }
+    tmpws = tmpws->next;
   }
 
-  if (!tc) return NULL;
-  
-  return tmpws;
+  return NULL;
 }
 
 void add_client_to_ws(Client *c, Workspace *s) {
@@ -415,8 +428,6 @@ void add_client_to_ws(Client *c, Workspace *s) {
 
   for (nc = s->clients; nc->next; nc = nc->next);
   nc->next = c;
-
-  return;
 }
 
 //not a real fullscreen, just makes it easy to resize clients to max size
