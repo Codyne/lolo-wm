@@ -60,7 +60,7 @@ void destroy_client(Window w);
 void remove_client(Workspace *s, Client *c);
 Client* get_client(Window w);
 Workspace* get_client_workspace(Window w);
-void add_client_to_ws(Client *c, Workspace *s);
+void add_client_to_ws(Client *c, char *ws_name);
 void fs_client(Client *c);
 
 int main(void) {
@@ -82,7 +82,7 @@ int main(void) {
     if (ev.type == Expose) {
       draw_bar_text();
     }
-    
+
     if(ev.type == KeyPress && ev.xkey.subwindow != None && ev.xkey.subwindow != bc->win) {
       if (XKeysymToKeycode(dpy, XStringToKeysym("F")) == ev.xkey.keycode) {
 	Client *c = get_client(ev.xkey.subwindow);
@@ -261,6 +261,7 @@ Workspace* create_workspace(char *str) {
   if (strcmp(ws->name, str) == 0) return ws;
   
   for (s = ws; s->next; s = s->next) if (strcmp(s->name, str) == 0) return s;
+  if (strcmp(s->name, str) == 0) return s;
 
   Workspace *ns = (struct Workspace*)malloc(sizeof(struct Workspace));
 
@@ -326,12 +327,11 @@ void change_workspace(char *str) {
 
 void move_client_workspace(char *str, Client *c) {
   Workspace *s = get_workspace(cur_ws);
-  Workspace *tarws = create_workspace(str);
 
-  if (!s || s == tarws) return;
+  if (strcmp(cur_ws, str) == 0) return;
 
   remove_client(s, c);
-  add_client_to_ws(c, tarws);
+  add_client_to_ws(c, str);
 }
 
 void create_client(Window w, int x, int y, int width, int height) {
@@ -344,7 +344,7 @@ void create_client(Window w, int x, int y, int width, int height) {
   nc->next = NULL;
   nc->win = w;
 
-  add_client_to_ws(nc, get_workspace(cur_ws));
+  add_client_to_ws(nc, cur_ws);
 }
 
 void destroy_client(Window w) {
@@ -416,8 +416,9 @@ Workspace* get_client_workspace(Window w) {
   return NULL;
 }
 
-void add_client_to_ws(Client *c, Workspace *s) {
+void add_client_to_ws(Client *c, char *ws_name) {
   Client *nc;
+  Workspace *s = create_workspace(ws_name);
 
   if (strcmp(s->name, cur_ws) != 0) XUnmapWindow(dpy, c->win);
 
