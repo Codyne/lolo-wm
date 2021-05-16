@@ -1,8 +1,11 @@
 # lolo-wm
-Small window manager for X11 with Xlib.h i've been working on for fun. Been using [dwm](https://github.com/fanglingsu/dwm) and [tinywm](https://github.com/mackstann/tinywm) to reference for help
+Small window manager for X11 with Xlib.h. Check out [dwm](https://github.com/fanglingsu/dwm), [tinywm](https://github.com/mackstann/tinywm), and [Xlib](https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html) as these are what helped me get started.
+
 You'll need the libx11-dev package\
 `sudo apt install libx11-dev`\
-then just make an Xsession for the executable. you'll also want to install dmenu to make life easier. or just use a real wm
+Afterwards make an Xsession that uses the path to your executable. Make sure to install dmenu to make life easier. Or just use a real wm.
+
+I am aware of how to make the event calls O(1), and it's not hard as seen in the dwm source code. So go check that out!
 
 #### Bindings
 `Mod4 + any number` will take you to a new workspace (e.g. Mod4 + 3 to go to workspace 3)\
