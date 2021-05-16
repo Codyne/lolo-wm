@@ -1,4 +1,4 @@
-# llwm
+# lolo-wm
 Small window manager for X11 with Xlib.h i've been working on for fun. Been using [dwm](https://github.com/fanglingsu/dwm) and [tinywm](https://github.com/mackstann/tinywm) to reference for help
 You'll need the libx11-dev package\
 `sudo apt install libx11-dev`\
